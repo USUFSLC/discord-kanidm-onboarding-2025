@@ -1,0 +1,4 @@
+CREATE TABLE IF NOT EXISTS accounts(
+	discord_id TEXT PRIMARY KEY,
+	kanidm_id TEXT UNIQUE NOT NULL
+);
