@@ -8,7 +8,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 def create_app():
     with open("schema.sql") as f:
         script = f.read()
-        with sqlite3.connect("db.sqlite") as con:
+        with sqlite3.connect("export/db.sqlite") as con:
             cur = con.cursor()
             cur.executescript(script)
 

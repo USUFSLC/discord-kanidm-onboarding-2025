@@ -12,5 +12,4 @@ services:
       volumes:
          - "./gunicorn.conf.py:/etc/gunicorn.conf.py"
          - "./fslc_discord/:/fslc_discord/fslc_discord"
-         - "./db.sqlite:/fslc_discord/db.sqlite"
-
+         - "./export:/fslc_discord/export"

@@ -11,4 +11,4 @@ services:
          - "5001:5001"
       volumes:
          - "./gunicorn.conf.py:/etc/gunicorn.conf.py"
-         - "./db.sqlite:/fslc_discord/db.sqlite"
+         - "./export:/fslc_discord/export"

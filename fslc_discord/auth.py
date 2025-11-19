@@ -152,7 +152,7 @@ def signup():
     if "uid" not in cookie:
         return make_response("No discord user ID in session", 400)
 
-    con = sqlite3.connect("db.sqlite")
+    con = sqlite3.connect("export/db.sqlite")
     cur = con.cursor()
     cur.execute("SELECT * FROM accounts WHERE discord_id = ?", (cookie["uid"],))
     if cur.fetchone() is not None:
