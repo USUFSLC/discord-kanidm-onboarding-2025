@@ -208,7 +208,7 @@ def signup():
     try:
         cur.execute(
             "INSERT INTO accounts (discord_id, kanidm_id) VALUES (?, ?)",
-            (discord_id, uuid)
+            (member["user"]["id"], uuid)
         )
         con.commit()
     except sqlite3.IntegrityError:
