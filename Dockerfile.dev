@@ -1,0 +1,12 @@
+FROM docker.io/python:3.12-slim
+
+COPY ./requirements.txt /tmp/requirements.txt
+RUN pip install -r /tmp/requirements.txt
+
+WORKDIR /fslc_discord
+
+COPY ./schema.sql .
+
+EXPOSE 5001
+
+CMD ["/usr/local/bin/python3", "-m", "flask", "-A", "fslc_discord.fslc_discord:create_app()", "run", "-h", "0.0.0.0", "-p", "5001", "--debug"]
