@@ -1,7 +1,7 @@
 from datetime import timedelta
 import json
 import sqlite3
-from flask import Blueprint, request, make_response, redirect, session, url_for
+from flask import Blueprint, current_app, request, make_response, redirect, session, url_for
 from os import environ
 import requests
 import secrets
@@ -29,7 +29,7 @@ class DiscordAuthError(Exception):
         self.code = code
 
     def into_response(self):
-        return make_response({"error": "discord", "message": self.message}, self.code)
+        return make_response({"error": "discord", "message": self.message, "code": self.code}, 401)
 
 
 def get_discord_user(access_token):
@@ -37,15 +37,17 @@ def get_discord_user(access_token):
         "Authorization": f"Bearer {access_token}",
     }
 
+    current_app.logger.info(access_token)
+
     guild_result = requests.get(
         f"https://discord.com/api/users/@me/guilds/{GUILD_ID}/member",
         headers=discord_headers
     )
 
-    if not guild_result.ok:
-        raise 
-
     member = guild_result.json()
+
+    if not guild_result.ok:
+        raise DiscordAuthError(member["message"], member["code"])
 
     return member
 
@@ -115,6 +117,9 @@ def callback():
     try:
         member = get_discord_user(access_token)
     except DiscordAuthError as e:
+        if e.code == 10004:
+            # More user-friendly HTML response for if the user isn't in the server.
+            return make_response("Please join the FSLC discord server.", 401)
         return e.into_response()
 
     cookie["uid"] = member["user"]["id"]
@@ -146,17 +151,42 @@ def signup():
         )
 
     if "fslc_discord" not in session:
-        return make_response("Browser has no cookie for FSLC discord.", 400)
+        return make_response({"error": "fslc", "message": "Browser has no cookie for FSLC discord."}, 400)
 
     cookie = session["fslc_discord"]
+
     if "uid" not in cookie:
-        return make_response("No discord user ID in session", 400)
+        return make_response({"error": "fslc", "message": "No discord user ID in session."}, 400)
+    if "token" not in cookie:
+        return make_response({"error": "fslc", "message": "No discord access token in session."}, 400)
 
     con = sqlite3.connect("export/db.sqlite")
     cur = con.cursor()
-    cur.execute("SELECT * FROM accounts WHERE discord_id = ?", (cookie["uid"],))
+    cur.execute("SELECT kanidm_id FROM accounts WHERE discord_id = ?", (cookie["uid"],))
     if cur.fetchone() is not None:
-        return make_response({"error": "fslc", "message": "That discord account already has a user associated with it."}, 400)
+        return make_response(
+            {
+                "error": "fslc",
+                "message": "That discord account already has a user associated with it."
+            },
+            400
+        )
+
+    access_token = cookie["token"]
+
+    try:
+        member = get_discord_user(access_token)
+    except DiscordAuthError as e:
+        return e.into_response()
+
+    if cookie["uid"] != member["user"]["id"]:
+        return make_response(
+            {
+                "error": "fslc",
+                "message": "Session's discord ID differs from response from discord server."
+            },
+            401
+        )
 
     create_response = requests.post(
         f"https://{KANIDM_DOMAIN}/v1/person",
@@ -178,7 +208,7 @@ def signup():
     try:
         cur.execute(
             "INSERT INTO accounts (discord_id, kanidm_id) VALUES (?, ?)",
-            (cookie["uid"], uuid)
+            (discord_id, uuid)
         )
         con.commit()
     except sqlite3.IntegrityError:
